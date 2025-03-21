@@ -1,30 +1,24 @@
 import pandas as pd
-import glob
+import os
 
-# Step 1: Read CSV files from data folder
-file_paths = glob.glob("data/*.csv")
+data_dir = 'data/'
+files = [file for file in os.listdir(data_dir) if file.endswith('.csv')]
 
-# Create an empty DataFrame to hold merged data
-final_data = pd.DataFrame()
+combined_df = pd.concat([pd.read_csv(os.path.join(data_dir, file)) for file in files])
 
-# Step 2: Loop through each file and perform processing
-for file_path in file_paths:
-    df = pd.read_csv(file_path)
+# Keep only Pink Morsel data
+filtered_df = combined_df[combined_df['product'].str.lower() == 'pink morsel'].copy()
 
-    # Step 3: Filter rows where product is 'pink morsel'
-    df = df[df["product"] == "pink morsel"]
+# Clean price and convert to numeric
+filtered_df['price'] = filtered_df['price'].replace('[\$,]', '', regex=True).astype(float)
 
-    # Step 4: Create new column "sales" by multiplying quantity and price
-    df["sales"] = df["quantity"] * df["price"]
+# Calculate sales
+filtered_df['sales'] = filtered_df['quantity'] * filtered_df['price']
 
-    # Step 5: Select only the required columns: sales, date, region
-    df = df[["sales", "date", "region"]]
+# Keep only relevant fields
+final_df = filtered_df[['sales', 'date', 'region']]
 
-    # Step 6: Append this processed data into final_data
-    final_data = pd.concat([final_data, df])
+# Save correctly formatted data inside data folder
+final_df.to_csv('data/formatted_sales_data.csv', index=False)
 
-# Step 7: Write the combined data to a single CSV
-final_data.to_csv("formatted_sales_data.csv", index=False)
-
-# Confirm completion
-print("CSV files successfully combined and processed!")
+print("Correctly formatted file created at: data/formatted_sales_data.csv")
