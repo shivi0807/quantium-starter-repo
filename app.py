@@ -1,48 +1,67 @@
+import dash
+from dash import dcc, html, Input, Output
 import pandas as pd
-from dash import Dash, html, dcc
 import plotly.express as px
 
-# Load data
-df = pd.read_csv('data/formatted_sales_data.csv')
-df['date'] = pd.to_datetime(df['date'])
-df = df.sort_values('date')
+# Load formatted sales data
+df = pd.read_csv("formatted_sales_data.csv")
 
-# Aggregate daily sales
-df_daily = df.groupby('date', as_index=False)['sales'].sum()
+# Initialize app
+app = dash.Dash(__name__)
+app.title = "Pink Morsel Sales Dashboard"
 
-# Dash app
-app = Dash(__name__)
+# Define layout
+app.layout = html.Div(className="main-container", children=[
+    html.Div(className="header", children=[
+        html.H1("Pink Morsel Sales", className="title", id="main-header"),  # 👈 ID added here
+        html.P("Interactive region-based sales analysis", className="subtitle")
+    ]),
 
-# Line chart
-fig = px.line(df_daily,
-              x='date',
-              y='sales',
-              title='Pink Morsel Sales Over Time',
-              labels={'date':'Date', 'sales':'Total Sales ($)'})
+    html.Div(className="controls", children=[
+        html.Label("Choose Region:", className="region-label"),
+        dcc.RadioItems(
+            id='region-selector',  # ✅ Already good
+            options=[{'label': region.capitalize(), 'value': region}
+                     for region in ['north', 'east', 'south', 'west', 'all']],
+            value='all',
+            className="radio-buttons"
+        )
+    ]),
 
-# Mark price increase clearly without error
-fig.add_shape(
-    type="line",
-    x0='2021-01-15', x1='2021-01-15',
-    y0=df_daily['sales'].min(), y1=df_daily['sales'].max(),
-    line=dict(color="red", width=2, dash="dash")
-)
-
-fig.add_annotation(
-    x='2021-01-15', y=df_daily['sales'].max(),
-    text="Price Increase",
-    showarrow=True,
-    arrowhead=1,
-    ax=-100,
-    ay=-40
-)
-
-# Layout
-app.layout = html.Div([
-    html.H1('Soul Foods Pink Morsel Sales Visualizer', style={'textAlign':'center'}),
-    dcc.Graph(figure=fig)
+    html.Div(className="graph-container", children=[
+        dcc.Graph(id='sales-graph')  # ✅ Already good
+    ])
 ])
 
+# Callback to update the chart based on region
+@app.callback(
+    Output('sales-graph', 'figure'),
+    Input('region-selector', 'value')
+)
+def update_chart(region):
+    if region == 'all':
+        filtered = df
+    else:
+        filtered = df[df['region'] == region]
+
+    # Group data by date and sum sales
+    plot_df = filtered.groupby('date')['sales'].sum().reset_index()
+
+    # Create the line chart
+    fig = px.line(
+        plot_df,
+        x='date',
+        y='sales',
+        title=f"{region.capitalize()} Region Sales" if region != 'all' else "All Regions Sales",
+        template='plotly_white'
+    )
+    fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=40, r=40, t=60, b=40),
+        hovermode="x unified"
+    )
+    return fig
+
+# Run the server
 if __name__ == '__main__':
     app.run(debug=True)
-
